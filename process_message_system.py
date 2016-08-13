@@ -14,7 +14,8 @@ class MessageProc:
         pipename = "/tmp/pipe" + str(os.getpid()) + ".fifo"
         if not os.path.exists(pipename):
             os.mkfifo(pipename)
-        self.messageList = []
+        self.messageLock = threading.Lock()
+        self.messageList = queue.Queue(maxsize=0)
         self.read_condition = threading.Condition()
         readThread = threading.Thread(target=self.readPipeToQueue, daemon=True)
         readThread.start()
@@ -26,41 +27,38 @@ class MessageProc:
         with open("/tmp/pipe" + str(os.getpid()) + ".fifo", 'rb') as fifo:
             while True:
                 try:
-                    print("Load: ", os.getpid())
                     label, values = pickle.load(fifo)
-                    with self.read_condition:
-                        self.messageList.append((label, values))
-                        self.read_condition.notify()
+                    self.messageList.put((label, values))
                 except EOFError:
                     time.sleep(0.01)
 
 
     # Send data to process with process id pid
     def give(self, pid, label, *values):
-        print("Give: ", pid, *values)
-        print("From: ", os.getpid())
-        foundPipe = False
         if pid in self.givePipes:
             fifo = self.givePipes[pid]
         else:
-            if not os.path.exists("/tmp/pipe" + str(pid) + ".fifo"):
-                os.mkfifo("/tmp/pipe" + str(pid) + ".fifo")
             fifo = open("/tmp/pipe" + str(pid) + ".fifo", 'wb')
             self.givePipes[pid] = fifo
         pickle.dump((label, values), fifo)
         
-        
+    
+    def processReceive(self, label, *values):
+        while True:
+            messages = self.messages
+            for message in self.messages:
+                if label == message.label or message.label == ANY:
+                    if message.guard():
+                        return message.action(*values)
+
+
     # Receive data sent to self
     def receive(self, *messages):
-         with self.read_condition:
-            self.read_condition.wait()
-            for i in range (len(self.messageList)):
-                label, values = self.messageList[i]
-                for message in messages:
-                    if label == message.label or message.label == ANY:
-                        if message.guard():
-                            del self.messageList[i]
-                            return message.action(*values)
+        self.messages = messages
+        label, values = self.messageList.get()
+        processReceiveDaemon = multiprocessing.Process(target=self.processReceive, args=(label,*values,))
+        processReceiveDaemon.daemon = True
+        processReceiveDaemon.start()
             
     # Creates new process
     def start(self):

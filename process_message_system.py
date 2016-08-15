@@ -2,7 +2,6 @@ import threading
 import os
 import pickle
 import queue
-import multiprocessing
 import time
 import atexit
 
@@ -26,14 +25,8 @@ class MessageProc:
                 os.mkfifo(self.pipe_name)
             except OSError:
                 pass
-        atexit.register(self.cleanup)
-        
-    
-    def cleanup(self):
-        try:
-            os.unlink(self.pipe_name)
-        except OSError:
-            pass
+        self.read_thread.start()
+
 
     # Sourced from lectures
     def read_pipe(self):
@@ -43,29 +36,25 @@ class MessageProc:
                     label, values = pickle.load(pipe_rd)
                     with self.arrived_condition:
                         self.message_queue.put((label, values))
-                        print("put", label)
                         self.arrived_condition.notify()
                 except EOFError:
-                    print("EOF")
-                    time.sleep(0.1)
+                    time.sleep(0.01)
 
 
     def give(self, pid, label, *values):
         if pid not in self.give_pipes:
         	self.give_pipes[pid] = open("/tmp/pipe" + str(pid) + ".fifo", 'wb')
-        print("gave", label)
-        pickle.dump((label, values), self.give_pipes[pid])
-
+        try:
+            pickle.dump((label, values), self.give_pipes[pid])
+            self.give_pipes[pid].flush()
+        except BrokenPipeError:
+            pass
 
     def receive(self, *commands):
-        if not self.read_thread.is_alive():
-            self.read_thread.start()
-
         timeout = TimeOut(None, action=lambda: None)
         for command in commands:
             if isinstance(command, TimeOut):
                 timeout = command
-                print("found timeout")
                 break
         messages = [message for message in commands if not isinstance(message, TimeOut)]
 
@@ -74,31 +63,26 @@ class MessageProc:
         while True:
             while not self.message_queue.empty():
                 label, values = self.message_queue.get()
-                print("got",label)
                 self.message_list.append((label , values))
             for i in range(index, len(self.message_list)):
                 label, values = self.message_list[i]
                 for message in messages:
                     if label == message.label or message.label == ANY:
                         if message.guard():
-                            print("deleting",label)
                             del self.message_list[i]
                             return message.action(*values)
                 index = i
             if self.message_queue.empty():
                 with self.arrived_condition:
-                    print("waiting")
                     if not self.arrived_condition.wait(timeout=timeout.get_time_left()):
-                        print("timed out")
                         return timeout.action()
-            
 
 
     # Creates new process
-    def start(self):
+    def start(self, *args):
         pid = os.fork()
         if pid == 0:
-            self.main()
+            self.main(*args)
         else:
             return pid
 

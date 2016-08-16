@@ -17,12 +17,11 @@ class MessageProc:
         self.read_thread = threading.Thread(target=self.read_pipe, daemon=True)
 
 
-    def main(self, *args):
+    def main(self):
         # Open a file for message queue
-        self.pipe_name = "/tmp/pipe" + str(os.getpid()) + ".fifo"
-        if not os.path.exists(self.pipe_name):
+        if not os.path.exists("/tmp/pipe" + str(os.getpid()) + ".fifo"):
             try:
-                os.mkfifo(self.pipe_name)
+                os.mkfifo("/tmp/pipe" + str(os.getpid()) + ".fifo")
             except OSError:
                 pass
         self.read_thread.start()
@@ -30,18 +29,14 @@ class MessageProc:
 
 
     def cleanup(self):
-        if hasattr(self, 'which'):
-            print("consumer cleaning")
-        elid hasattr()
-        filelist = [ f for f in os.listdir("/tmp") if f.startswith("pipe") ]
-        for f in filelist:
-            if os.path.exists("/tmp/" + str(f)):
-                os.unlink("/tmp/" + str(f))
-
+        try:
+            os.unlink("/tmp/pipe" + str(os.getpid()) + ".fifo")
+        except FileNotFoundError:
+            pass
 
     # Sourced from lectures
     def read_pipe(self):
-        with open(self.pipe_name, 'rb') as pipe_rd:
+        with open("/tmp/pipe" + str(os.getpid()) + ".fifo", 'rb') as pipe_rd:
             while True:
                 try:
                     label, values = pickle.load(pipe_rd)
@@ -58,6 +53,9 @@ class MessageProc:
                 pass
             self.give_pipes[pid] = open("/tmp/pipe" + str(pid) + ".fifo", 'wb')
         try:
+            if hasattr(self, 'which'):
+                if label == "stop":
+                    print("consumer",self.which,"stopped")
             pickle.dump((label, values), self.give_pipes[pid])
             self.give_pipes[pid].flush()
         except BrokenPipeError:
@@ -119,6 +117,8 @@ class TimeOut:
         self.start = time.time()
 
     def get_time_left(self):
+        if self.delay == None:
+            return None
         time_left = self.delay - (time.time() - self.start)
         if time_left < 0:
             return 0

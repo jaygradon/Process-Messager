@@ -1,5 +1,6 @@
 from process_message_system import *
 import sys
+import os
 
 class NameServerTest(MessageProc):
 
@@ -18,6 +19,7 @@ class NameServerTest(MessageProc):
 		self.register_services()
 		self.query_name_server()
 		self.stop_name_server()
+		os.unlink("/tmp/pipe_test_server.fifo")
 		sys.exit()
 
 	def register_services(self):

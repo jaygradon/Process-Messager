@@ -53,6 +53,7 @@ class NamedServiceOne(MessageProc):
 
 	def stop_service(self):
 		print("Sevice One is shutting down")
+		os.unlink(self.pipe_one)
 		sys.exit()
 
 if __name__=='__main__':

@@ -17,6 +17,7 @@ class NamedServiceTwo(MessageProc):
 		self.get_service()
 		self.give(self.name_server, 'stop')
 		print("Service Two is shutting down")
+		os.unlink(self.pipe_two)
 		sys.exit()
 
 	def register_service(self):

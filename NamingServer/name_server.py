@@ -1,5 +1,6 @@
 from process_message_system import *
 import sys
+import os
 
 class NameServer(MessageProc):
 
@@ -54,6 +55,7 @@ class NameServer(MessageProc):
 
 	def stop_server(self):
 		print("Name Server is shutting down")
+		os.unlink("/tmp/pipe_name_server.fifo")
 		sys.exit()
 
 if __name__=='__main__':

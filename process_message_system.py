@@ -17,7 +17,7 @@ class MessageProc:
         self.read_thread = threading.Thread(target=self.read_pipe, daemon=True)
 
 
-    def main(self):
+    def main(self, *args):
         # Open a file for message queue
         self.pipe_name = "/tmp/pipe" + str(os.getpid()) + ".fifo"
         if not os.path.exists(self.pipe_name):
@@ -26,6 +26,17 @@ class MessageProc:
             except OSError:
                 pass
         self.read_thread.start()
+        atexit.register(self.cleanup)
+
+
+    def cleanup(self):
+        if hasattr(self, 'which'):
+            print("consumer cleaning")
+        elid hasattr()
+        filelist = [ f for f in os.listdir("/tmp") if f.startswith("pipe") ]
+        for f in filelist:
+            if os.path.exists("/tmp/" + str(f)):
+                os.unlink("/tmp/" + str(f))
 
 
     # Sourced from lectures
@@ -43,7 +54,9 @@ class MessageProc:
 
     def give(self, pid, label, *values):
         if pid not in self.give_pipes:
-        	self.give_pipes[pid] = open("/tmp/pipe" + str(pid) + ".fifo", 'wb')
+            while not os.path.exists("/tmp/pipe" + str(pid) + ".fifo"):
+                pass
+            self.give_pipes[pid] = open("/tmp/pipe" + str(pid) + ".fifo", 'wb')
         try:
             pickle.dump((label, values), self.give_pipes[pid])
             self.give_pipes[pid].flush()
@@ -57,7 +70,6 @@ class MessageProc:
                 timeout = command
                 break
         messages = [message for message in commands if not isinstance(message, TimeOut)]
-
         index = 0
         timeout.start_clock()
         while True:
@@ -103,16 +115,11 @@ class TimeOut:
         self.delay = delay
         self.action = action
 
-
-    # Should time out keep track of all time or just time during one wait?
     def start_clock(self):
         self.start = time.time()
 
-
     def get_time_left(self):
-        if self.delay is None:
-            return self.delay
         time_left = self.delay - (time.time() - self.start)
-        if time_left <= 0:
+        if time_left < 0:
             return 0
         return time_left

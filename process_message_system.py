@@ -53,9 +53,6 @@ class MessageProc:
                 pass
             self.give_pipes[pid] = open("/tmp/pipe" + str(pid) + ".fifo", 'wb')
         try:
-            if hasattr(self, 'which'):
-                if label == "stop":
-                    print("consumer",self.which,"stopped")
             pickle.dump((label, values), self.give_pipes[pid])
             self.give_pipes[pid].flush()
         except BrokenPipeError:

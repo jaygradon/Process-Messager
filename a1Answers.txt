@@ -1,0 +1,21 @@
+a1Answers
+
+1. Messages using named pipes can be interleaved due to the usage of buffers when writing to a pipe.  If a message exceeds the size of the buffer, the partial message
+   will be written to the pipe, allowing another message to be written before the rest of the initial message, thus interleaving the messages together.  You can be 
+   certain the messages will not be interleaved if the length of the message is less than the buffer or there is only one thread/process writing to the pipe.
+
+2. The access to a list should be protected by a lock for thread safety if multiple threads or processes can access the list concurrently.  In the case of buffer_space,
+   the only process/thread that can access the list is the Buffer, albeit at the behest of other processes.  As the buffer is the only process/thread accessing the
+   buffer_space at any given time, no two things can happen to the list concurrently which may cause unexpected behaviour, and a lock is not required.
+
+3. Using the process id as a message passing identifier has some security concerns as the process id can be used to interfere with or otherwise disrupt the process, 
+   using commands such as kill in shell.
+
+4. The name server works by creating a pipe with a constant name. Other processes can then send messages such as register to this pipe (with a name and pid) and the 
+   server will store their name in its 'database' (a dictionary, keyed by name).  By sending a get_service message with a name and requesting pid to the name servers pipe, 
+   a different service/process can get the pid of the requested name, as the server will send a reply message with the name and pid of the requested service back to the passed
+   pid.  
+   An example of this is service_one and service_two.  Service_one will perform certain prints at the behest of other processes in response to messages.  Service_One registers
+   with the name server by sending a 'register' message.  Service_two gets service_ones pid by sending a 'get_service' 'service_one' message with its own pid.  Service_two can
+   then send messages directly to service one, making requests such as "please print something".  In reponse to this, Service_One can print "Service One printed something at the 
+   request of [name]", and send a message back to service two confirming print, should service two be registered.

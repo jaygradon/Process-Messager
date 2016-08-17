@@ -9,7 +9,8 @@ class NameServer(MessageProc):
 
 	def main(self):
 		super().__init__()
-		super().main("/tmp/pipe_name_server.fifo")
+		self.pipe_name = "/tmp/pipe_name_server.fifo"
+		super().main()
 		print("Name Server started and is processing messages")
 		self.process_messages()
 
@@ -18,7 +19,7 @@ class NameServer(MessageProc):
 			self.receive(
 				Message(
 					'register',
-					action=lambda name,pid,pipe: self.add_to_server(name, pid, pipe)
+					action=lambda name,pid: self.add_to_server(name, pid)
 				),
 				Message(
 					'deregister',
@@ -26,8 +27,8 @@ class NameServer(MessageProc):
 				),
 				Message(
 					'get_service',
-					guard=lambda name, getters_pipe: self.does_name_exist(name),
-					action=lambda name, getters_pipe: self.give_service(getters_pipe, name)
+					guard=lambda name, get_pid: self.does_name_exist(name),
+					action=lambda name, get_pid: self.give_service(get_pid, name)
 				),
 				Message(
 					'stop',
@@ -35,18 +36,18 @@ class NameServer(MessageProc):
 				)
 			)
 
-	def add_to_server(self, name, pid, pipe):
+	def add_to_server(self, name, pid):
 		print("Registering",name)
-		self.pipe_server[name] = (pid, pipe)
+		self.pipe_server[name] = (pid)
 
 	def remove_from_server(self, name):
 		print("Deregistering",name)
 		del self.pipe_server[name]
 
-	def give_service(self, getters_pipe, name):
-		print("Giving",name,"to",getters_pipe)
-		pid, pipe = self.pipe_server[name]
-		self.give(getters_pipe, 'service', name, pid, pipe)
+	def give_service(self, get_pid, name):
+		print("Giving",name,"to",get_pid)
+		pid = self.pipe_server[name]
+		self.give(get_pid, 'service', name, pid)
 
 	def does_name_exist(self, name):
 		if self.pipe_server[name] != None:

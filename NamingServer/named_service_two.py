@@ -6,48 +6,57 @@ class NamedServiceTwo(MessageProc):
 
 	def __init__(self):
 		self.service_two = "service_two"
-		self.pipe_two = "/tmp/pipe_service_two.fifo"
 		self.pid_two = os.getpid()
 		self.name_server = "/tmp/pipe_name_server.fifo"
 
 	def main(self):
 		super().__init__()
-		super().main(self.pipe_two)
+		super().main()
 		self.register_service()
 		self.get_service()
-		self.give(self.name_server, 'stop')
+		self.give_to_name_server('stop')
 		print("Service Two is shutting down")
-		os.unlink(self.pipe_two)
+		os.unlink("/tmp/pipe" + str(os.getpid()) + ".fifo")
 		sys.exit()
 
 	def register_service(self):
-		self.give(self.name_server, 'register', self.service_two, self.pid_two, self.pipe_two)
+		self.give_to_name_server('register', self.service_two, os.getpid())
 
 	def get_service(self):
-		self.give(self.name_server, 'get_service', "service_one", self.pipe_two)
+		print("Asking server for service one")
+		time.sleep(1)
+		self.give_to_name_server('get_service', "service_one", os.getpid())
 		self.receive(
 			Message(
 				'service',
-				action=lambda name, pid, pipe: self.send_queries(pipe)
+				action=lambda name, pid: self.send_queries(pid)
 			)
 		)
 
-	def send_queries(self, pipe):
-		self.give(pipe, 'query', self.service_two, "Are you service one?")
+	def send_queries(self, pid):
+		print("Asking if registered service is Service One")
+		time.sleep(1)
+		self.give(pid, 'query', self.service_two, "Are you service one?")
 		self.receive(
 			Message(
 				'reply',
 				action=lambda reply: print(reply)
 			)
 		)
-		self.give(pipe, 'query', self.service_two, "Please print something")
+		time.sleep(1)
+		print("Asking service one to print something")
+		time.sleep(1)
+		self.give(pid, 'query', self.service_two, "Please print something")
 		self.receive(
 			Message(
 				'reply',
 				action=lambda reply: print(reply)
 			)
 		)
-		self.give(pipe, 'stop')
+		time.sleep(1)
+		print("Asking service one to stop")
+		time.sleep(1)
+		self.give(pid, 'stop')
 
 
 	def stop_service(self):

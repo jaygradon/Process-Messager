@@ -13,12 +13,11 @@ class MessageProc:
 		self.give_pipes = {}
 		self.message_queue = queue.Queue(maxsize=0)
 		self.message_list = []
-		self.pipe_name = "/tmp/pipe_none.fifo"
 		self.arrived_condition = threading.Condition()
 		self.read_thread = threading.Thread(target=self.read_pipe, daemon=True)
+		self.pipe_name = "/tmp/pipe" + str(os.getpid()) + ".fifo"
 
-	def main(self, pipe_name):
-		self.pipe_name = pipe_name
+	def main(self):
 		# Open a file for message queue
 		if not os.path.exists(self.pipe_name):
 			try:
@@ -39,10 +38,21 @@ class MessageProc:
 				except EOFError:
 					time.sleep(0.01)
 
-	def give(self, pipe, label, *values):
-		while not os.path.exists(pipe):
+	def give(self, pid, label, *values):
+		if pid not in self.give_pipes:
+			while not os.path.exists("/tmp/pipe" + str(pid) + ".fifo"):
+				pass
+			self.give_pipes[pid] = open("/tmp/pipe" + str(pid) + ".fifo", 'wb')
+		try:
+			pickle.dump((label, values), self.give_pipes[pid])
+			self.give_pipes[pid].flush()
+		except BrokenPipeError:
 			pass
-		with open(pipe, 'wb') as fifo:
+
+	def give_to_name_server(self, label, *values):
+		while not os.path.exists("/tmp/pipe_name_server.fifo"):
+			pass
+		with open("/tmp/pipe_name_server.fifo", 'wb') as fifo:
 			try:
 				pickle.dump((label, values), fifo)
 				fifo.flush()
